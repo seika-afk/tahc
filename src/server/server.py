@@ -1,11 +1,11 @@
 import asyncio
 import websockets
 import json
+import os
+from websockets.exceptions import InvalidHandshake
 
 passwd = "0909"
 connected_clients = {}  
-
-
 
 async def tahc(websocket):
     try:
@@ -22,10 +22,10 @@ async def tahc(websocket):
 
         connected_clients[websocket] = name
         print(f"User {name} entered")
-
         join_msg = json.dumps({"system": f"{name} joined"})
         await asyncio.gather(*[ws.send(join_msg) for ws in connected_clients])
 
+        # send current users to the new user
         await websocket.send(json.dumps({"users": list(connected_clients.values())}))
 
         ######################################### MAIN CHAT LOOP
@@ -43,11 +43,14 @@ async def tahc(websocket):
             leave_msg = json.dumps({"system": f"{leave_name} left"})
             await asyncio.gather(*[ws.send(leave_msg) for ws in connected_clients])
 
-
 async def starttahc():
-    async with websockets.serve(tahc, "localhost", 8765):
-        print("SERVER STARTED")
+    port = int(os.environ.get("PORT", 8765))
+    async with websockets.serve(tahc, "0.0.0.0", port):
+        print(f"SERVER STARTED on port {port}")
         await asyncio.Future()  # run forever
 
-asyncio.run(starttahc())
-
+if __name__ == "__main__":
+    try:
+        asyncio.run(starttahc())
+    except InvalidHandshake:
+        print("Ignored non-WebSocket request")
